@@ -3,11 +3,47 @@ package main
 import (
 	"dolittle.io/contracts-compatibility/artifacts"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 )
 
 func main() {
+	help := flag.Bool("h", false, "Print help information")
+	output := flag.String("o", "markdown", "Output format [markdown,json]")
+	flag.Parse()
+
+	if *help {
+		fmt.Println("Contracts Compatibility a tool to resolve compatible versions of the Dolittle Runtime and SDKs")
+		fmt.Println("Usage:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	if !(*output == "markdown" || *output == "json") {
+		fmt.Fprintln(os.Stderr, "Invalid output format ", *output, "specified. Only 'markdown' or 'json' is supported.")
+		os.Exit(1)
+	}
+
+	graph, err := createGraph()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed while creating dependency graph", err)
+		os.Exit(2)
+	}
+
+	compatibility := ResolveCompatibilityFrom(graph)
+
+	if *output == "markdown" {
+		WriteTables(os.Stdout, compatibility)
+	}
+	if *output == "json" {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		encoder.Encode(compatibility)
+	}
+}
+
+func createGraph() (*artifacts.Graph, error) {
 	//token, err := docker.GetAuthTokenFor("dolittle/runtime")
 	//if err != nil {
 	//	fmt.Println("Token error", err)
@@ -44,20 +80,14 @@ func main() {
 
 	cache, err := os.Open("graph.json")
 	if err != nil {
-		fmt.Println("Failed to open graph.json file", err)
-		return
+		return nil, err
 	}
 
 	graph := &artifacts.Graph{}
 	err = json.NewDecoder(cache).Decode(graph)
 	if err != nil {
-		fmt.Println("Failed to parse graph.json file", err)
-		return
+		return nil, err
 	}
 
-	compatibility := ResolveCompatibilityFrom(graph)
-	//encoder := json.NewEncoder(os.Stdout)
-	//encoder.SetIndent("", "  ")
-	//encoder.Encode(compatibility)
-	WriteTables(os.Stdout, compatibility)
+	return graph, nil
 }
