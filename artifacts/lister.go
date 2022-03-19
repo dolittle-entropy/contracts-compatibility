@@ -45,7 +45,6 @@ func (listResolver *ReleaseListResolver) ListAndResolve() (Releases, error) {
 		wg.Add(1)
 		go func(releasedVersion *semver.Version) {
 			defer wg.Done()
-			fmt.Println("Resolving dependency for version", releasedVersion.String())
 			contractsVersion, err := listResolver.resolver.ResolveDependencyForVersion(releasedVersion)
 			if err != nil {
 				return

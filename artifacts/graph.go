@@ -2,6 +2,7 @@ package artifacts
 
 import (
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -25,7 +26,7 @@ func CreateGraphFor(runtime *ReleaseListResolver, sdks map[string]*ReleaseListRe
 		defer wg.Done()
 		releases, err := runtime.ListAndResolve()
 		if err != nil {
-			fmt.Println("Failed to list Runtime releases", err)
+			fmt.Fprintln(os.Stderr, "Failed to list Runtime releases", err)
 			return
 		}
 
@@ -40,7 +41,7 @@ func CreateGraphFor(runtime *ReleaseListResolver, sdks map[string]*ReleaseListRe
 			defer wg.Done()
 			releases, err := resolver.ListAndResolve()
 			if err != nil {
-				fmt.Println("Failed to list", sdk, "SDK releases", err)
+				fmt.Fprintln(os.Stderr, "Failed to list", sdk, "SDK releases", err)
 				return
 			}
 
