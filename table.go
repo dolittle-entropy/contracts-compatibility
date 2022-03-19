@@ -3,15 +3,17 @@ package main
 import (
 	"fmt"
 	"github.com/coreos/go-semver/semver"
+	"github.com/olekukonko/tablewriter"
 	"io"
 	"sort"
-	"strings"
 )
 
-func WriteTables(w io.Writer, compatibility *Compatibility) error {
+// WriteTables writes Markdown tables for Runtime and SDK compatibilities from the given Compatibility to the provided Writer
+func WriteTables(w io.Writer, compatibility *Compatibility) {
 	fmt.Fprintln(w, "## By Runtime version:")
-	writeTable(w, buildRuntimeTable(compatibility.Runtime))
-	fmt.Fprintln(w)
+	table := createMarkdownTable(w)
+	fillRuntimeTable(table, compatibility.Runtime)
+	table.Render()
 
 	sdks := make([]string, 0)
 	for sdk := range compatibility.SDKs {
@@ -20,15 +22,27 @@ func WriteTables(w io.Writer, compatibility *Compatibility) error {
 	sort.Strings(sdks)
 
 	for _, sdk := range sdks {
-		fmt.Fprintf(w, "## By %v SDK version:\n", sdk)
-		writeTable(w, buildSDKTable(sdk, compatibility.SDKs[sdk]))
-		fmt.Fprintln(w)
+		fmt.Fprintf(w, "\n## By %v SDK version:\n", sdk)
+		table := createMarkdownTable(w)
+		fillSDKTable(table, sdk, compatibility.SDKs[sdk])
+		table.Render()
 	}
-
-	return nil
 }
 
-func buildRuntimeTable(compatibility map[string]map[string]semver.Versions) [][]string {
+func createMarkdownTable(w io.Writer) *tablewriter.Table {
+	table := tablewriter.NewWriter(w)
+	table.SetBorders(tablewriter.Border{
+		Left:   true,
+		Top:    false,
+		Right:  true,
+		Bottom: false,
+	})
+	table.SetAutoFormatHeaders(false)
+	table.SetCenterSeparator("|")
+	return table
+}
+
+func fillRuntimeTable(table *tablewriter.Table, compatibility map[string]map[string]semver.Versions) {
 	sortedVersions := make(semver.Versions, 0)
 	for version := range compatibility {
 		sortedVersions = append(sortedVersions, semver.New(version))
@@ -41,152 +55,115 @@ func buildRuntimeTable(compatibility map[string]map[string]semver.Versions) [][]
 	}
 	sort.Strings(sdks)
 
-	versionColumn := []string{"Runtime"}
-	for _, version := range sortedVersions {
-		versionColumn = append(versionColumn, version.String())
-	}
-
-	table := [][]string{versionColumn}
+	headers := []string{"Runtime"}
 	for _, sdk := range sdks {
-		sdkColumn := []string{sdk + " SDK"}
+		headers = append(headers, sdk+" SDK")
+	}
+	table.SetHeader(headers)
 
-		for _, version := range sortedVersions {
-			sdkColumn = append(sdkColumn, versionsToRange(compatibility[version.String()][sdk]))
+	rows := make([][]semver.Versions, 0)
+	for _, version := range sortedVersions {
+		row := []semver.Versions{{version}}
+		rowHasContents := false
+		for _, sdk := range sdks {
+			sdkVersions := compatibility[version.String()][sdk]
+			if len(sdkVersions) > 0 {
+				rowHasContents = true
+			}
+			row = append(row, sdkVersions)
 		}
-
-		table = append(table, sdkColumn)
+		if rowHasContents {
+			rows = append(rows, row)
+		}
 	}
 
-	return table
+	table.AppendBulk(renderVersionTable(compactVersionTable(rows)))
 }
 
-func buildSDKTable(sdk string, compatibility map[string]semver.Versions) [][]string {
-	ranges := make(map[string]string)
-	for version, runtimeVersions := range compatibility {
-		ranges[version] = versionsToRange(runtimeVersions)
-	}
-
-	versionColumn := make([]string, 0)
-	runtimeColumn := make([]string, 0)
+func fillSDKTable(table *tablewriter.Table, sdk string, compatibility map[string]semver.Versions) {
+	table.SetHeader([]string{sdk + " SDK", "Runtime"})
 
 	sortedVersions := make(semver.Versions, 0)
-	for version := range ranges {
+	for version := range compatibility {
 		sortedVersions = append(sortedVersions, semver.New(version))
 	}
 	semver.Sort(sortedVersions)
 
+	rows := make([][]semver.Versions, 0)
 	for _, version := range sortedVersions {
-		compatibleRange := ranges[version.String()]
-		versionColumn = append(versionColumn, version.String())
-		runtimeColumn = append(runtimeColumn, compatibleRange)
+		rows = append(rows, []semver.Versions{
+			{version},
+			compatibility[version.String()],
+		})
 	}
 
-	return [][]string{
-		append([]string{sdk + " SDK"}, versionColumn...),
-		append([]string{"Runtime"}, runtimeColumn...),
-	}
+	table.AppendBulk(renderVersionTable(compactVersionTable(rows)))
 }
 
-func versionsToRange(versions semver.Versions) string {
-	switch len(versions) {
-	case 0:
-		return ""
-	case 1:
-		return versions[0].String()
-	default:
-		return versions[0].String() + " - " + versions[len(versions)-1].String()
-	}
-}
-
-func writeTable(w io.Writer, table [][]string) error {
-	table = compactTable(table)
-	rows := len(table[0])
-	width := 0
-	for _, column := range table {
-		for _, value := range column {
-			if len(value) > width {
-				width = len(value)
+func compactVersionTable(table [][]semver.Versions) [][]semver.Versions {
+	ranges := make([][]semver.Versions, len(table))
+	for i, row := range table {
+		ranges[i] = make([]semver.Versions, len(table[i]))
+		for j, column := range row {
+			if len(column) > 2 {
+				ranges[i][j] = semver.Versions{column[0], column[len(column)-1]}
+			} else {
+				ranges[i][j] = column
 			}
 		}
 	}
 
-	fmt.Fprint(w, "|")
-	for _, column := range table {
-		fmt.Fprintf(w, " %v ", padRight(column[0], " ", width))
-		fmt.Fprint(w, "|")
-	}
-	fmt.Fprintln(w)
+	compacted := make([][]semver.Versions, len(ranges))
+	for i := 0; i < len(ranges); {
+		row := ranges[i]
+		compacted[i] = row
 
-	fmt.Fprint(w, "|")
-	for range table {
-		fmt.Fprint(w, padRight("", "-", width+2))
-		fmt.Fprint(w, "|")
-	}
-	fmt.Fprintln(w)
-
-	for i := 1; i < rows; i++ {
-		fmt.Fprint(w, "|")
-		for _, column := range table {
-			fmt.Fprintf(w, " %v ", padRight(column[i], " ", width))
-			fmt.Fprint(w, "|")
-		}
-		fmt.Fprintln(w)
-	}
-
-	return nil
-}
-
-func compactTable(table [][]string) [][]string {
-	compacted := make([][]string, 0)
-	for _, column := range table {
-		compacted = append(compacted, []string{column[0]})
-	}
-
-	columns := len(table)
-	rows := len(table[0])
-
-	for row := 1; row < rows; row++ {
-		rowHasContent := false
-		for column := 1; column < columns; column++ {
-			if len(table[column][row]) > 0 {
-				rowHasContent = true
-			}
-		}
-
-		if !rowHasContent {
-			continue
-		}
-
-		lastDuplicateRow := row
-	duplicates:
-		for {
-			if lastDuplicateRow+1 == rows {
-				break
-			}
-			for column := 1; column < columns; column++ {
-				if table[column][lastDuplicateRow] != table[column][row] {
-					break duplicates
+		didSkip := false
+	skipRow:
+		for i += 1; i < len(ranges); i++ {
+			for j := 1; j < len(row); j++ {
+				if !rangeEquals(row[j], ranges[i][j]) {
+					break skipRow
 				}
 			}
-			lastDuplicateRow += 1
-		}
-		lastDuplicateRow -= 1
-
-		if lastDuplicateRow != rows && lastDuplicateRow > row {
-			compacted[0] = append(compacted[0], table[0][row]+" - "+table[0][lastDuplicateRow])
-			row = lastDuplicateRow
-		} else {
-			compacted[0] = append(compacted[0], table[0][row])
+			didSkip = true
 		}
 
-		for column := 1; column < columns; column++ {
-			compacted[column] = append(compacted[column], table[column][row])
+		if didSkip {
+			row[0] = append(row[0], ranges[i-1][0][0])
 		}
+
 	}
 
 	return compacted
 }
 
-func padRight(value, padding string, width int) string {
-	return value + strings.Repeat(padding, width-len(value))
+func rangeEquals(left, right semver.Versions) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := 0; i < len(left); i++ {
+		if !left[i].Equal(*right[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func renderVersionTable(table [][]semver.Versions) [][]string {
+	rendered := make([][]string, len(table))
+	for i, row := range table {
+		rendered[i] = make([]string, len(table[i]))
+		for j, column := range row {
+			switch len(column) {
+			case 1:
+				rendered[i][j] = column[0].String()
+			case 2:
+				rendered[i][j] = column[0].String() + " - " + column[1].String()
+			default:
+				rendered[i][j] = ""
+			}
+		}
+	}
+	return rendered
 }
