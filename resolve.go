@@ -16,7 +16,7 @@ func ResolveCompatibilityFrom(graph *artifacts.Graph) *Compatibility {
 		sdkCompatibility := make(map[string]semver.Versions)
 
 		for sdk, releases := range graph.SDKs {
-			sdkCompatibility[sdk] = resolveCompatibleReleases(release.ContractsVersion, releases, true)
+			sdkCompatibility[sdk] = resolveCompatibleSDKReleases(release, sdk, releases)
 		}
 
 		compatibility.Runtime[release.Version.String()] = sdkCompatibility
@@ -26,7 +26,7 @@ func ResolveCompatibilityFrom(graph *artifacts.Graph) *Compatibility {
 		runtimeCompatibility := make(map[string]semver.Versions)
 
 		for _, release := range releases {
-			runtimeCompatibility[release.Version.String()] = resolveCompatibleReleases(release.ContractsVersion, graph.Runtime, false)
+			runtimeCompatibility[release.Version.String()] = resolveCompatibleRuntimeReleases(sdk, release, graph.Runtime)
 		}
 
 		compatibility.SDKs[sdk] = runtimeCompatibility
@@ -35,21 +35,42 @@ func ResolveCompatibilityFrom(graph *artifacts.Graph) *Compatibility {
 	return compatibility
 }
 
-func resolveCompatibleReleases(contracts *semver.Version, releases artifacts.Releases, contractsShouldBeGreater bool) semver.Versions {
+func resolveCompatibleSDKReleases(runtime *artifacts.Release, sdk string, releases artifacts.Releases) semver.Versions {
 	compatibleVersions := make(semver.Versions, 0)
 
 	for _, release := range releases {
-		if contracts.Major != release.ContractsVersion.Major {
+		if runtime.ContractsVersion.Major != release.ContractsVersion.Major {
 			continue
 		}
-		if contractsShouldBeGreater && contracts.Minor < release.ContractsVersion.Minor {
+		if runtime.ContractsVersion.Minor < release.ContractsVersion.Minor {
 			continue
 		}
-		if !contractsShouldBeGreater && contracts.Minor > release.ContractsVersion.Minor {
+		if VersionsCompatibilityIsOverridden(runtime.Version, sdk, release.Version) {
 			continue
 		}
 
 		compatibleVersions = append(compatibleVersions, release.Version)
+	}
+
+	semver.Sort(compatibleVersions)
+	return compatibleVersions
+}
+
+func resolveCompatibleRuntimeReleases(sdk string, release *artifacts.Release, releases artifacts.Releases) semver.Versions {
+	compatibleVersions := make(semver.Versions, 0)
+
+	for _, runtime := range releases {
+		if release.ContractsVersion.Major != runtime.ContractsVersion.Major {
+			continue
+		}
+		if release.ContractsVersion.Minor > runtime.ContractsVersion.Minor {
+			continue
+		}
+		if VersionsCompatibilityIsOverridden(runtime.Version, sdk, release.Version) {
+			continue
+		}
+
+		compatibleVersions = append(compatibleVersions, runtime.Version)
 	}
 
 	semver.Sort(compatibleVersions)
