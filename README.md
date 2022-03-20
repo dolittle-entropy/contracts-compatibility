@@ -8,7 +8,7 @@ checks the [DotNet SDK](https://github.com/dolittle/DotNET.SDK) and the
 
 Usage:
 ```shell
-contracts-compatibility -h
+$ contracts-compatibility -h
 Contracts Compatibility a tool to resolve compatible versions of the Dolittle Runtime and SDKs
 Usage:
   -h    Print help information
