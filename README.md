@@ -23,3 +23,16 @@ versions.
 > there are quite a few released versions, this quickly eats into your IPs rate limits. So be careful about running it
 > a lot of times. Read more on the
 > [Docker Hub rate limit documentation](https://docs.docker.com/docker-hub/download-rate-limit/#definition-of-limits).
+
+### How to run it
+The tool is released as a Docker image on
+[dolittle/contracts-compatibility](https://hub.docker.com/r/dolittle/contracts-compatibility), so the simplest way to
+get started is to run:
+```shell
+$ docker run dolittle/contracts-compatibility
+```
+
+If you want to try it from source (you need Go 1.18 or greater), in the repository root, run:
+```shell
+$ go run .
+```
