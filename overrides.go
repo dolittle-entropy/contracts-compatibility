@@ -14,6 +14,7 @@ type Override struct {
 // Overrides defines the known breaking release pairs that is not captured in the Contracts versions
 var Overrides = []Override{
 	{
+		// The breaking change in ReverseCall ping-pong behaviour introduced in v6
 		RuntimeVersion: semver.New("6.0.0"),
 		SDKVersions: map[string]*semver.Version{
 			"DotNET":     semver.New("9.0.0"),
