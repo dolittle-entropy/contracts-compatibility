@@ -132,7 +132,7 @@ func compactVersionTable(table [][]semver.Versions) [][]semver.Versions {
 		}
 
 		if didSkip {
-			row[0] = append(row[0], ranges[i-1][0][0])
+			row[0] = semver.Versions{ranges[i-1][0][0], row[0][0]}
 		}
 
 	}
