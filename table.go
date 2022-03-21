@@ -62,7 +62,8 @@ func fillRuntimeTable(table *tablewriter.Table, compatibility map[string]map[str
 	table.SetHeader(headers)
 
 	rows := make([][]semver.Versions, 0)
-	for _, version := range sortedVersions {
+	for i := len(sortedVersions) - 1; i >= 0; i-- {
+		version := sortedVersions[i]
 		row := []semver.Versions{{version}}
 		rowHasContents := false
 		for _, sdk := range sdks {
@@ -90,7 +91,8 @@ func fillSDKTable(table *tablewriter.Table, sdk string, compatibility map[string
 	semver.Sort(sortedVersions)
 
 	rows := make([][]semver.Versions, 0)
-	for _, version := range sortedVersions {
+	for i := len(sortedVersions) - 1; i >= 0; i-- {
+		version := sortedVersions[i]
 		rows = append(rows, []semver.Versions{
 			{version},
 			compatibility[version.String()],
@@ -130,7 +132,7 @@ func compactVersionTable(table [][]semver.Versions) [][]semver.Versions {
 		}
 
 		if didSkip {
-			row[0] = append(row[0], ranges[i-1][0][0])
+			row[0] = semver.Versions{ranges[i-1][0][0], row[0][0]}
 		}
 
 	}
