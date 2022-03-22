@@ -46,7 +46,7 @@ var _ = Describe("NewReleaseVersion", func() {
 			Expect(parsed.Major).To(Equal(int64(4)))
 			Expect(parsed.Minor).To(Equal(int64(5)))
 			Expect(parsed.Patch).To(Equal(int64(6)))
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(BeNil())
 		})
 	})
 })
