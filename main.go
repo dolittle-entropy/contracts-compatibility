@@ -15,6 +15,8 @@ import (
 func main() {
 	help := flag.Bool("h", false, "Print help information")
 	output := flag.String("o", "markdown", "Output format [markdown,json]")
+	username := flag.String("docker-username", "", "DockerHub username to use to authenticate with")
+	password := flag.String("docker-password", "", "DockerHub password/PAT to use to authenticate with")
 	flag.Parse()
 
 	if *help {
@@ -29,7 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	graph, err := createGraph()
+	graph, err := createGraph(*username, *password)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed while creating dependency graph", err)
 		os.Exit(2)
@@ -47,8 +49,16 @@ func main() {
 	}
 }
 
-func createGraph() (*artifacts.Graph, error) {
-	token, err := docker.GetAuthTokenFor("dolittle/runtime")
+func createGraph(username, password string) (*artifacts.Graph, error) {
+	var token docker.AuthToken
+	var err error
+
+	if username != "" && password != "" {
+		token, err = docker.GetAuthenticatedUserAuthTokenFor("dolittle/runtime", username, password)
+	} else {
+		token, err = docker.GetAuthTokenFor("dolittle/runtime")
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("could not get Docker Hub authentication token, %w", err)
 	}
@@ -56,7 +66,7 @@ func createGraph() (*artifacts.Graph, error) {
 	graph := artifacts.CreateGraphFor(
 		artifacts.NewReleaseListResolver(
 			docker.NewReleaseListerFor(token, "dolittle/runtime"),
-			docker.NewDependencyResolverFor(token, "dolittle/runtime", dotnet.NewDepsResolverFor("Dolittle.Runtime.Contracts"), "app/Dolittle.Runtime.Server.deps.json", "app/Server.deps.json"),
+			docker.NewDependencyResolverFor(token, "dolittle/runtime", dotnet.NewDepsResolverFor("Dolittle.Contracts"), "app/Dolittle.Runtime.Server.deps.json", "app/Server.deps.json"),
 		),
 		map[string]*artifacts.ReleaseListResolver{
 			"DotNET": artifacts.NewReleaseListResolver(
