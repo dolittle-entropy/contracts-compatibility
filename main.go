@@ -7,10 +7,8 @@ import (
 	"dolittle.io/contracts-compatibility/registries/npm"
 	"dolittle.io/contracts-compatibility/registries/nuget"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"github.com/coreos/go-semver/semver"
 	"os"
 )
 
@@ -65,14 +63,10 @@ func createGraph(username, password string) (*artifacts.Graph, error) {
 		return nil, fmt.Errorf("could not get Docker Hub authentication token, %w", err)
 	}
 
-	resolver := docker.NewDependencyResolverFor(token, "dolittle/runtime", dotnet.NewDepsResolverFor("Dolittle.Runtime.Contracts"), "app/Dolittle.Runtime.Server.deps.json", "app/Server.deps.json")
-	resolver.ResolveDependencyForVersion(semver.New("8.4.1"))
-	return nil, errors.New("HELLO")
-
 	graph := artifacts.CreateGraphFor(
 		artifacts.NewReleaseListResolver(
 			docker.NewReleaseListerFor(token, "dolittle/runtime"),
-			docker.NewDependencyResolverFor(token, "dolittle/runtime", dotnet.NewDepsResolverFor("Dolittle.Runtime.Contracts"), "app/Dolittle.Runtime.Server.deps.json", "app/Server.deps.json"),
+			docker.NewDependencyResolverFor(token, "dolittle/runtime", dotnet.NewDepsResolverFor("Dolittle.Contracts"), "app/Dolittle.Runtime.Server.deps.json", "app/Server.deps.json"),
 		),
 		map[string]*artifacts.ReleaseListResolver{
 			"DotNET": artifacts.NewReleaseListResolver(
