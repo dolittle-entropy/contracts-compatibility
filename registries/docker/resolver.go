@@ -61,7 +61,6 @@ func (resolver *DependencyResolver) getDockerImageLayers(version *semver.Version
 		return nil, fmt.Errorf("could not create Docker manifest request: %w", err)
 	}
 	request.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	request.Header.Add("Accept", "application/vnd.docker.distribution.manifest.list.v2+json")
 
 	info := dockerManifest{}
 	if err := http.DoJSON(request, &info); err != nil {
